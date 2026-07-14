@@ -1,0 +1,20 @@
+# Generated database — run `python data/generate_data.py` to recreate
+database/recruitment.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+venv/
+.venv/
+env/

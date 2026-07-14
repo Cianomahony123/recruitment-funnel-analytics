@@ -1,0 +1,11 @@
+faker>=24.0.0
+pandas>=2.2.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.20.0
+scikit-learn>=1.4.0
+jupyter>=1.0.0
+ipykernel>=6.29.0
+nbformat>=5.10.0
+nbconvert>=7.16.0
