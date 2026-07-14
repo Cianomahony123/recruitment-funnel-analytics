@@ -52,11 +52,39 @@ START_DATE = date(2024, 1, 1)
 END_DATE = date(2025, 6, 30)  # 18 months
 TOTAL_DAYS = (END_DATE - START_DATE).days
 
-# Funnel drop-off probabilities (probability of ADVANCING to next stage)
-P_SOURCED_TO_SCREENED = 0.60
-P_SCREENED_TO_INTERVIEWED = 0.50
-P_INTERVIEWED_TO_OFFERED = 0.40
-P_OFFERED_TO_PLACED = 0.85
+# Channel-specific conversion rates — gives the predictive model real signal to learn.
+# Referrals convert best at every stage; Job Board worst (volume vs quality trade-off).
+CHANNEL_SCREENED_RATE = {
+    "Referral":        0.78,
+    "Agency Database": 0.65,
+    "LinkedIn":        0.58,
+    "Cold Outreach":   0.52,
+    "Job Board":       0.42,
+}
+CHANNEL_INTERVIEWED_RATE = {
+    "Referral":        0.68,
+    "Agency Database": 0.55,
+    "LinkedIn":        0.48,
+    "Cold Outreach":   0.42,
+    "Job Board":       0.35,
+}
+CHANNEL_OFFERED_RATE = {
+    "Referral":        0.52,
+    "Agency Database": 0.45,
+    "LinkedIn":        0.40,
+    "Cold Outreach":   0.33,
+    "Job Board":       0.27,
+}
+
+# Recruiter-specific offer-to-placed rates add a secondary signal
+RECRUITER_PLACED_RATE = {
+    "Sarah Kelly":    0.90,
+    "Marcus Chen":    0.87,
+    "Priya Nair":     0.83,
+    "Dave O'Sullivan": 0.78,
+}
+
+P_OFFERED_TO_PLACED = 0.85  # fallback if recruiter not found
 
 STAGE_GAP_DAYS = {
     "Screened": (2, 7),
@@ -167,12 +195,20 @@ def generate_candidates_and_pipeline(conn, roles):
         # --- pipeline progression ---
         recruiter = random.choice(RECRUITERS)
         current_date = date_sourced
+
+        # Use channel as stored (messy), but look up rates by canonical name
+        canonical = channel  # always the clean version
+        p_screened   = CHANNEL_SCREENED_RATE[canonical]
+        p_interviewed = CHANNEL_INTERVIEWED_RATE[canonical]
+        p_offered    = CHANNEL_OFFERED_RATE[canonical]
+        p_placed     = RECRUITER_PLACED_RATE.get(recruiter, P_OFFERED_TO_PLACED)
+
         pipeline.append((stage_id, candidate_id, role_id, recruiter, "Sourced",
                           current_date.isoformat()))
         stage_id += 1
 
         # Sourced -> Screened
-        if random.random() < P_SOURCED_TO_SCREENED:
+        if random.random() < p_screened:
             gap = random.randint(*STAGE_GAP_DAYS["Screened"])
             current_date = current_date + timedelta(days=gap)
             pipeline.append((stage_id, candidate_id, role_id, recruiter, "Screened",
@@ -180,7 +216,7 @@ def generate_candidates_and_pipeline(conn, roles):
             stage_id += 1
 
             # Screened -> Interviewed
-            if random.random() < P_SCREENED_TO_INTERVIEWED:
+            if random.random() < p_interviewed:
                 gap = random.randint(*STAGE_GAP_DAYS["Interviewed"])
                 current_date = current_date + timedelta(days=gap)
                 pipeline.append((stage_id, candidate_id, role_id, recruiter, "Interviewed",
@@ -188,7 +224,7 @@ def generate_candidates_and_pipeline(conn, roles):
                 stage_id += 1
 
                 # Interviewed -> Offered
-                if random.random() < P_INTERVIEWED_TO_OFFERED:
+                if random.random() < p_offered:
                     gap = random.randint(*STAGE_GAP_DAYS["Offered"])
                     current_date = current_date + timedelta(days=gap)
                     pipeline.append((stage_id, candidate_id, role_id, recruiter, "Offered",
@@ -198,7 +234,7 @@ def generate_candidates_and_pipeline(conn, roles):
                     # Offered -> Placed or Rejected
                     gap = random.randint(*STAGE_GAP_DAYS["Placed"])
                     current_date = current_date + timedelta(days=gap)
-                    if random.random() < P_OFFERED_TO_PLACED:
+                    if random.random() < p_placed:
                         pipeline.append((stage_id, candidate_id, role_id, recruiter, "Placed",
                                           current_date.isoformat()))
                     else:
