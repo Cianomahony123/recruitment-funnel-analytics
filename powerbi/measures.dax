@@ -1,0 +1,117 @@
+// ============================================================
+// DAX Measures — Recruitment Funnel & Sourcing ROI
+// Paste each block into Power BI Desktop > New Measure
+// ============================================================
+
+// ── Core counts ─────────────────────────────────────────────
+
+Total Sourced =
+COUNTROWS(Pipeline_Stages)
+
+Total Placed =
+CALCULATE(
+    COUNTROWS(Pipeline_Stages),
+    Pipeline_Stages[stage] = "Placed"
+)
+
+Total Screened =
+CALCULATE(
+    COUNTROWS(Pipeline_Stages),
+    Pipeline_Stages[stage] = "Screened"
+)
+
+Total Interviewed =
+CALCULATE(
+    COUNTROWS(Pipeline_Stages),
+    Pipeline_Stages[stage] = "Interviewed"
+)
+
+Total Offered =
+CALCULATE(
+    COUNTROWS(Pipeline_Stages),
+    Pipeline_Stages[stage] = "Offered"
+)
+
+// ── Conversion rates ────────────────────────────────────────
+
+Placement Rate % =
+DIVIDE([Total Placed], [Total Sourced], 0) * 100
+
+Screened Rate % =
+DIVIDE([Total Screened], [Total Sourced], 0) * 100
+
+Interviewed Rate % =
+DIVIDE([Total Interviewed], [Total Sourced], 0) * 100
+
+Offer Rate % =
+DIVIDE([Total Offered], [Total Sourced], 0) * 100
+
+// ── Funnel drop-off (stage to stage) ────────────────────────
+
+Sourced to Screened Drop % =
+100 - [Screened Rate %]
+
+Screened to Interviewed Drop % =
+DIVIDE(
+    [Total Screened] - [Total Interviewed],
+    [Total Screened],
+    0
+) * 100
+
+Interviewed to Offered Drop % =
+DIVIDE(
+    [Total Interviewed] - [Total Offered],
+    [Total Interviewed],
+    0
+) * 100
+
+Offered to Placed Drop % =
+DIVIDE(
+    [Total Offered] - [Total Placed],
+    [Total Offered],
+    0
+) * 100
+
+// ── Cost & ROI ───────────────────────────────────────────────
+
+Total Sourcing Cost =
+SUMX(
+    Channel_ROI,
+    Channel_ROI[total_sourcing_cost]
+)
+
+Cost Per Hire =
+DIVIDE([Total Sourcing Cost], [Total Placed], BLANK())
+
+Cost Per Hire (Formatted) =
+"$" & FORMAT([Cost Per Hire], "#,##0")
+
+ROI Index =
+-- Lower cost-per-hire relative to average = higher index
+VAR AvgCPH = AVERAGEX(ALL(Channel_ROI), Channel_ROI[cost_per_hire])
+RETURN
+DIVIDE(AvgCPH, [Cost Per Hire], BLANK())
+
+// ── Time to fill ────────────────────────────────────────────
+
+Avg Days to Fill =
+AVERAGE(Recruiter_Performance[avg_days_to_fill])
+
+// ── KPI labels (for card visuals) ───────────────────────────
+
+Placement Rate Label =
+FORMAT([Placement Rate %], "0.0") & "%"
+
+Best Channel =
+FIRSTNONBLANK(
+    TOPN(1, VALUES(Channel_ROI[source_channel]),
+         CALCULATE(MIN(Channel_ROI[cost_per_hire]))),
+    1
+)
+
+Worst Drop Stage =
+FIRSTNONBLANK(
+    TOPN(1, VALUES(Funnel_Summary[stage]),
+         CALCULATE(MAX(Funnel_Summary[drop_off_pct]))),
+    1
+)
